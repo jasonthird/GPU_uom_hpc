@@ -1,6 +1,9 @@
+//compile with hipcc -x hip CountSort.cpp
+//or hipcc -x cuda CountSort.cpp for nvidia
+//optimal flags -O3 -march=native -mtune=native but they don't do much
+//tasted on an rx 6600xt, hip is suppose to support nvidia but I haven't tested it
+
 #include <hip/hip_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <iostream>
 #include <vector>
 #include <time.h>
@@ -67,7 +70,7 @@ int main(int args, char** argv){
     dim3 threadsPerBlock(512, 1, 1);
     dim3 blocks((n + threadsPerBlock.x - 1) / threadsPerBlock.x, 1, 1);
 
-    //luanch kernel
+    //launch kernel
     hipLaunchKernelGGL(countSort, blocks, threadsPerBlock, 0, 0, d_a, n, tempArray);
     hipMemcpy(a.data(), tempArray, n * sizeof(int), hipMemcpyDeviceToHost);
 
