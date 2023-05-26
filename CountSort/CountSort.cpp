@@ -21,6 +21,7 @@ __global__ void countSort(int* a,int n, int* tempArray){
     //         count++;
     //     else if (a[j] == a[i] && j < i)
     //         count++;
+    #pragma unroll //unroll the loop to increase performance, makes a small difference
     for (int j = 0; j < n; j++){
         count+= (a[j] < a[i]);
         count+= (a[j] == a[i] && j < i);
