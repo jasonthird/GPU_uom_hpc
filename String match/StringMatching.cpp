@@ -62,11 +62,11 @@ int main(int argc, char* argv[]) {
     std::cout << "File size is " << fileSize << std::endl;
 
     // allocate memory to contain the file
-    std::vector<char> buffer(fileSize);
-    if (!file.read(buffer.data(), fileSize)) {
-        std::cout << "Reading error\n";
-        return 4;
-    }
+    char* buffer;
+    hipHostMalloc((void**)&buffer, fileSize * sizeof(char));
+
+    //read file
+    file.read(buffer, fileSize);
 
     // setup GPU memory
     char* fileDataGpu;
@@ -75,31 +75,41 @@ int main(int argc, char* argv[]) {
     char* patternGpu;
 
     hipMalloc((void**)&fileDataGpu, fileSize * sizeof(char));
+    hipMalloc((void**)&patternGpu, patternSize * sizeof(char));
     hipMalloc((void**)&matchGpu, fileSize * sizeof(int));
     hipMalloc((void**)&total_matchesGpu, sizeof(int));
-    hipMalloc((void**)&patternGpu, patternSize * sizeof(char));
 
-    hipMemset(matchGpu, 0, fileSize * sizeof(int));
-    hipMemset(total_matchesGpu, 0, sizeof(int));
+    // create a stream for async operations
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     // send data to GPU
-    hipMemcpy(fileDataGpu, buffer.data(), fileSize * sizeof(char), hipMemcpyHostToDevice);
-    hipMemcpy(patternGpu, pattern.c_str(), patternSize * sizeof(char), hipMemcpyHostToDevice);
+    hipMemcpyAsync(fileDataGpu, buffer, fileSize * sizeof(char), hipMemcpyHostToDevice, stream);
+    hipMemcpyAsync(patternGpu, pattern.c_str(), patternSize * sizeof(char), hipMemcpyHostToDevice, stream);
+
+    // zero out match array
+    hipMemset(matchGpu, 0, fileSize * sizeof(int));
+    hipMemset(total_matchesGpu, 0, sizeof(int));
 
     // setup execution parameters
     dim3 threadsPerBlock(512, 1, 1);
     dim3 blocks((fileSize + threadsPerBlock.x - 1) / threadsPerBlock.x, 1, 1);
 
     // launch kernel
-    hipLaunchKernelGGL(StringMatching, blocks, threadsPerBlock, 0, 0, fileDataGpu, fileSize, patternGpu, patternSize, matchGpu, fileSize, total_matchesGpu);
+    hipLaunchKernelGGL(StringMatching, blocks, threadsPerBlock, 0, stream, fileDataGpu, fileSize, patternGpu, patternSize, matchGpu, fileSize, total_matchesGpu);
 
     // get results back
     std::vector<int> match(fileSize);
     int total_matches;
-    hipMemcpy(match.data(), matchGpu, fileSize * sizeof(int), hipMemcpyDeviceToHost);
-    hipMemcpy(&total_matches, total_matchesGpu, sizeof(int), hipMemcpyDeviceToHost);
+    //  using async version of memcpy
+    hipMemcpyAsync(match.data(), matchGpu, fileSize * sizeof(int), hipMemcpyDeviceToHost, stream);
+    hipMemcpyAsync(&total_matches, total_matchesGpu, sizeof(int), hipMemcpyDeviceToHost, stream);
 
-	//print results
+
+    // wait for all asynchronous operations to complete
+    hipStreamSynchronize(stream);
+
+	// print results
     std::cout << "Total matches: " << total_matches << std::endl;
 	// for (int i=0; i<fileSize; i++) {
 	// 	if (match[i] == 1) {
@@ -108,6 +118,7 @@ int main(int argc, char* argv[]) {
 	// }
 
     // cleanup
+    hipStreamDestroy(stream);
     hipFree(fileDataGpu);
     hipFree(matchGpu);
     hipFree(total_matchesGpu);
