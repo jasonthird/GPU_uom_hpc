@@ -55,11 +55,6 @@ int main(int args, char** argv){
         a[i] = output[i];
     }
 
-
-    //free memory
-    // hipFree(d_a);
-    // hipFree(tempArray);
-
     // std::cout << "Sorted array: ";
     // for (int i = 0; i < n; i++)
     //     std::cout << a[i] << " ";
