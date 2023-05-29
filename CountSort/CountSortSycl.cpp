@@ -26,33 +26,27 @@ int main(int args, char** argv){
     //     std::cout << a[i] << " ";
     // std::cout << std::endl;
 
-    cl::sycl::queue queue(0);
+    //start of scope for SYCL
+    {
+        cl::sycl::queue queue(0);
 
-    //setup memory
-    cl::sycl::buffer<int, 1> d_a(a.data(), n);
-    cl::sycl::buffer<int, 1> tempArray(a.data(), n);
+        //setup memory
+        cl::sycl::buffer<int, 1> d_a(a.data(), n);
+        cl::sycl::buffer<int, 1> tempArray(a.data(), n);
 
-    queue.submit([&](cl::sycl::handler& cgh){
-        auto d_a_acc = d_a.get_access<cl::sycl::access::mode::read_write>(cgh);
-        auto tempArray_acc = tempArray.get_access<cl::sycl::access::mode::read_write>(cgh);
-        cgh.parallel_for<class countSort>(cl::sycl::range<1>(n), [=](cl::sycl::item<1> i){
-            int count = 0;
-            for (int j = 0; j < n; j++){
-                count+= (d_a_acc[j] < d_a_acc[i]);
-                count+= (d_a_acc[j] == d_a_acc[i] && j < i);
-            }
-            tempArray_acc[count] = d_a_acc[i];
+        queue.submit([&](cl::sycl::handler& cgh){
+            auto d_a_acc = d_a.get_access<cl::sycl::access::mode::read>(cgh);
+            auto tempArray_acc = tempArray.get_access<cl::sycl::access::mode::discard_write>(cgh);
+            cgh.parallel_for<class countSort>(cl::sycl::range<1>(n), [=](cl::sycl::item<1> i){
+                int count = 0;
+                for (int j = 0; j < n; j++){
+                    count+= (d_a_acc[j] < d_a_acc[i]);
+                    count+= (d_a_acc[j] == d_a_acc[i] && j < i);
+                }
+                tempArray_acc[count] = d_a_acc[i];
+            });
+            
         });
-        
-    });
-
-
-    queue.wait_and_throw(); 
-    
-    auto output = tempArray.get_access<cl::sycl::access::mode::read>();
-
-    for (int i = 0; i < n; i++){
-        a[i] = output[i];
     }
 
     // std::cout << "Sorted array: ";

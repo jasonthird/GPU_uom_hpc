@@ -49,3 +49,7 @@ uftrace.data
 
 *__pycache*
 
+*.json
+*.csv
+*.db
+*.txt
