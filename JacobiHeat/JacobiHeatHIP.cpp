@@ -4,32 +4,30 @@
 #include <iostream>
 #include <vector>
 
-#define maxsize 500
+#define maxsize 12000
 #define iterations 900
-#define ROW 50
-#define COL 50
+#define ROW 450
+#define COL 352
 #define start 100
-#define accuracy 27
+#define accuracy 35
 
 #define MAX_THREADS_PER_BLOCK 32
 
-__global__ void calculateHeat(double* table1, double* table2, double* diff)
+__global__ void calculateHeat(float* table1, float* table2, float* diff)
 {
     int col = blockIdx.y * blockDim.y + threadIdx.y;
     int row = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (row >= maxsize || col >= maxsize || row == 0 || row == maxsize-1 || col == 0 || col == maxsize-1)
         return;
-
-    table2[row*maxsize+col] = 0.25*(table1[(row-1)*maxsize+col] + table1[(row+1)*maxsize+col] + table1[row*maxsize+col-1] + table1[row*maxsize+col+1]);
-
-    double diff_temp = (table2[row*maxsize+col] - table1[row*maxsize+col]) * (table2[row*maxsize+col] - table1[row*maxsize+col]);
-    atomicAdd(diff, diff_temp);
     
+    table2[row*maxsize+col] = 0.25*(table1[(row-1)*maxsize+col] + table1[(row+1)*maxsize+col] + table1[row*maxsize+col-1] + table1[row*maxsize+col+1]);
+    float diff_temp = (table2[row*maxsize+col] - table1[row*maxsize+col]) * (table2[row*maxsize+col] - table1[row*maxsize+col]);
+    atomicAdd(diff, diff_temp);
 
 }
 
-__global__ void initData(double* table, double* diff){
+__global__ void initData(float* table, float* diff){
     table[ROW*maxsize+COL] = start;
     diff[0] = 0;
 }
@@ -38,45 +36,51 @@ int main(int argc, char* argv[])
 {
     int i, j, k;
 
-    std::vector<double> table1;
-    std::vector<double> table2;
+    std::vector<float> table1;
+    std::vector<float> table2;
     table1.resize(maxsize*maxsize);
     table2.resize(maxsize*maxsize);
 
-    double diff;
+    float diff;
 
     // pointer to GPU memory
-    double *d_table1;
-    double *d_table2;
-    double *d_diff;
+    float *d_table1;
+    float *d_table2;
+    float *d_diff;
 
     // allocate GPU memory
-    hipMalloc((void**)&d_table1, maxsize * maxsize * sizeof(double));
-    hipMalloc((void**)&d_table2, maxsize * maxsize * sizeof(double));
-    hipMalloc((void**)&d_diff, sizeof(double));
+    hipMalloc((void**)&d_table1, maxsize * maxsize * sizeof(float));
+    hipMalloc((void**)&d_table2, maxsize * maxsize * sizeof(float));
+    hipMalloc((void**)&d_diff, sizeof(float));
 
-    hipMemset(d_table1, 0, maxsize * maxsize * sizeof(double));
-    hipMemset(d_table2, 0, maxsize * maxsize * sizeof(double));
-    hipMemset(d_diff, 0, sizeof(double));
-    dim3 threadsPerBlock(MAX_THREADS_PER_BLOCK, MAX_THREADS_PER_BLOCK, 1);
-    dim3 blocks((maxsize + threadsPerBlock.x - 1) / threadsPerBlock.x, (maxsize + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
+    hipMemset(d_table1, 0, maxsize * maxsize * sizeof(float));
+    hipMemset(d_table2, 0, maxsize * maxsize * sizeof(float));
+    hipMemset(d_diff, 0, sizeof(float));
+    dim3 threadsPerBlock(MAX_THREADS_PER_BLOCK, MAX_THREADS_PER_BLOCK);
+    dim3 blocks((maxsize + threadsPerBlock.x - 1) / threadsPerBlock.x, (maxsize + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    std::cout << "blocks.x = " << blocks.x << std::endl;
+    std::cout << "blocks.y = " << blocks.y << std::endl;
+    std::cout << "threadsPerBlock.x = " << threadsPerBlock.x << std::endl;
+    std::cout << "threadsPerBlock.y = " << threadsPerBlock.y << std::endl;
 
     /* repeate for each iteration */
     for(k = 0; k < iterations; k++){
 
         hipLaunchKernelGGL(initData, 1, 1, 0, 0, d_table1, d_diff);
+        hipDeviceSynchronize();
 
         //call kernel
-        hipLaunchKernelGGL(calculateHeat, threadsPerBlock, blocks, 0, 0, d_table1, d_table2, d_diff);
+        hipLaunchKernelGGL(calculateHeat, blocks, threadsPerBlock, 0, 0, d_table1, d_table2, d_diff);
 
         //copy diff back to host
-        hipMemcpy(&diff, d_diff, sizeof(double), hipMemcpyDeviceToHost);
+        hipMemcpy(&diff, d_diff, sizeof(float), hipMemcpyDeviceToHost);
         diff = sqrt(diff);
-        std::cout << "diff = " << diff << std::endl;
+        // std::cout << "diff = " << diff << std::endl;
         /* print difference and check convergence */
         // printf("diff = %3.25f\n\n", diff);
         if (diff < accuracy) {
             printf("\n\nConvergence in %d iterations\n\n", k);
+            printf("diff = %3.25f\n\n", diff);
             break;
         }
 
