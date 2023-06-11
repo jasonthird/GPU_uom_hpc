@@ -1,3 +1,5 @@
+//compile with /opt/hipSYCL/ROCm/bin/syclcc JacobiHeatSycl.cpp -O3 --hipsycl-targets=hip:gfx1032 -march=native -mtune=native
+//that for arch linux and an rx 6600xt, for other distros and gpus check the openSYCL(hipSYCL) documentation
 #include <CL/sycl.hpp>
 #include <iostream>
 #include <vector>

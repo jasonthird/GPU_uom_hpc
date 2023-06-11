@@ -1,3 +1,8 @@
+//compile with hipcc -x hip StringMatching.cpp
+//or hipcc -x cuda StringMatching.cpp for NVIDIA
+//optimal flags -O3 -march=native -mtune=native but they don't do much
+//tasted on an RX 6600 XT, HIP is supposed to support NVIDIA but I haven't tested it
+
 #include <iostream>
 #include <fstream>
 #include <vector>

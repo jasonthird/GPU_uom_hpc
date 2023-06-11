@@ -1,5 +1,5 @@
-//compile with hipcc -x hip CountSort.cpp
-//or hipcc -x cuda CountSort.cpp for NVIDIA
+//compile with hipcc -x hip CharFreq.cpp
+//or hipcc -x cuda CharFreq.cpp for NVIDIA
 //optimal flags -O3 -march=native -mtune=native but they don't do much
 //tasted on an RX 6600 XT, HIP is supposed to support NVIDIA but I haven't tested it
 

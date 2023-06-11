@@ -1,3 +1,8 @@
+//compile with hipcc -x hip jacobiHeatHIP.cpp
+//or hipcc -x cuda jacobiHeatHIP.cpp for nvidia
+//optimal flags -O3 -march=native -mtune=native but they don't do much
+//tasted on an rx 6600xt, hip is suppose to support nvidia but I haven't tested it
+
 #include <stdio.h>
 #include <math.h>
 #include "hip/hip_runtime.h"
